@@ -1,0 +1,37 @@
+---
+description: "Get Allocated Volume of RDS and put it on CloudWatch"
+schemaVersion: "0.3"
+assumeRole: "{{ AutomationAssumeRole }}"
+parameters:
+  DBInstanceId:
+    type: "String"
+    description: "Specify Ids of RDS instances which you want to get Allocated Volume."
+  AutomationAssumeRole:
+    type: "String"
+    description: "(Optional) The ARN of the role that allows Automation to perform the actions on your behalf."
+    default: ""
+mainSteps:
+- name: "GetAllocatedVolume"
+  action: aws:executeAwsApi
+  inputs:
+    Service: rds
+    Api: DescribeDBInstances
+    DBInstanceIdentifier: "{{ DBInstanceId }}"
+  outputs:
+  - Name: AllocatedStorageofRDS
+    Selector: "$.DBInstances[0].AllocatedStorage"
+    Type: "Integer"
+
+- name: "PutMetricsOnCloudWatch"
+  action: aws:executeAwsApi
+  inputs:
+    Service: cloudwatch
+    Api: PutMetricData
+    Namespace: RDSParameters
+    MetricData:
+      - MetricName: AllocatedVolume
+        Dimensions: 
+          - Name: DBInstanceIdentifier
+            Value: "{{ DBInstanceId }}"
+        Value: "{{ GetAllocatedVolume.AllocatedStorageofRDS }}"
+        Unit: "Gigabytes"
